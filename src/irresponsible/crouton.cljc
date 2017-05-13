@@ -3,11 +3,11 @@
             [clojure.set :as set]
             [irresponsible.spectra :as ss]
             [#?(:clj clojure.spec :cljs cljs.spec) :as s]
-   #?(:clj  [clojure.core.match :refer [match]]
-      :cljs [cljs.core.match :refer-macros [match]]))
-#?(:clj (:import [java.util.regex Pattern]
-                 [clojure.lang IPersistentMap IPersistentVector Keyword]
-                 [irresponsible.crouton Crouton IRoute Preds$PosInt]))
+            #?(:clj  [clojure.core.match :refer [match]]
+               :cljs [cljs.core.match :refer-macros [match]]))
+  #?(:clj (:import [java.util.regex Pattern]
+                   [clojure.lang IPersistentMap IPersistentVector Keyword]
+                   [irresponsible.crouton Crouton IRoute Preds$PosInt]))
   (:refer-clojure :exclude [* #?(:clj compile)]))
 
 (defn- assoc-once
@@ -78,18 +78,24 @@
   #?(:clj  (instance?  IRoute v)
      :cljs (satisfies? IRoute v)))
 
-(defprotocol PrintSegment
-  (print-segment [self places]
-    "Print the given url segment
-     args: [segment places]
-       places: map of keyword placeholder values
-     returns: string"))
-
-(extend-protocol PrintSegment
-  #?(:clj String :cljs js/String)
-  (print-segment [self _] self)
-  Keyword
-  (print-segment [self places] (places self)))
+#?
+(:clj
+ (do (defprotocol PrintSegment
+       (print-segment [self places]
+         "Print the given url segment
+          args: [segment places]
+            places: map of keyword placeholder values
+          returns: string"))
+     (extend-protocol PrintSegment
+       String
+       (print-segment [self _] self)
+       Keyword
+       (print-segment [self places] (places self)))))
+:cljs
+(defn print-segment [s places]
+  (cond (string? s) s
+        (keyword? s) (places s)
+        :else (throw (ex-info "Unrecongnised print segment (expected string or keyword" {:got s}))))
 
 (defn- print-route
   "Prints segments seperated by / with an additional / at the start
@@ -109,7 +115,7 @@
 (s/def ::precanned #{:crouton/pos-int
                      ::pos-int})
 (s/def ::regex regex?)
-(s/def ::fn (and ifn? (complement keyword?)))
+(s/def ::fn (s/and ifn? (complement keyword?)))
 (s/def ::validator (ss/some-spec ::precanned ::regex ::fn))
 
 (defn parse-path
@@ -509,7 +515,7 @@
       slurp     (rev-compile-slurp slurp path)
       (seq str) (rev-compile-strings str path)
       (seq ph)  (rev-compile-places ph path))))
-  
+
 (defn- compile-route
   "Compiles a router for a given route
    args: [route]

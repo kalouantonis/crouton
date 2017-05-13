@@ -19,4 +19,3 @@
     (.match reg ["foo"] (transient {}))
    ;; (.match pl ["foo"] (transient {}))
   ))
-  
