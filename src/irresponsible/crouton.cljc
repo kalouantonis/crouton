@@ -92,7 +92,12 @@
        Keyword
        (print-segment [self places] (places self)))))
 :cljs
-(defn print-segment [s places]
+(defn print-segment
+  "Print the given url segment
+   args: [s places]
+     places: map of keyword placeholder values
+   returns: string"
+  [s places]
   (cond (string? s) s
         (keyword? s) (places s)
         :else (throw (ex-info "Unrecongnised print segment (expected string or keyword" {:got s}))))
@@ -112,8 +117,7 @@
 (s/def ::iroutes+ (s/coll-of iroute? :min-count 1 :into []))
 
 (s/def ::name (some-fn keyword? string?))
-(s/def ::precanned #{:crouton/pos-int
-                     ::pos-int})
+(s/def ::precanned #{:crouton/pos-int ::pos-int})
 (s/def ::regex regex?)
 (s/def ::fn (s/and ifn? (complement keyword?)))
 (s/def ::validator (ss/some-spec ::precanned ::regex ::fn))
@@ -478,7 +482,7 @@
             (print-route (map #(print-segment % places) path)))]
     (assoc-once routers k f)))
 
-((:a (rev-compile-end :a [] {})) {})
+((rev-compile-end :home [] {}) {})
 
 (defn- rev-compile-slurp
   "Compiles a reverse router for a slurp
@@ -493,12 +497,12 @@
         f (fn [{:keys [:crouton/slurp] :as places}]
             (check-places places ks-set)
             (as-> path $
-              (map print-segment $)
+              (map #(print-segment % places) $)
               (concat $ slurp)
               (print-route $)))]
     (assoc-once routers k f)))
 
-(defn- rev-compile-map
+(defn rev-compile-map
   "Compiles a reverse router for a given map
    args: [map path routers]
      map: of clojure routes
@@ -561,6 +565,20 @@
     (match-route forward (parse-path path) {}))
   (unroute [self match]
     (backward match)))
+
+(defn route-ex
+  "Same as `route`, but throws an exception if route is not found."
+  [router path]
+  (if-let [route-def (route router path)]
+    route-def
+    (throw (ex-info "Missing route:" {:path path}))))
+
+(defn unroute-ex
+  "Same as `unroute`, but throws an exception if path is not found."
+  [router match]
+  (if-let [path (unroute router match)]
+    path
+    (throw (ex-info "Missing path:" {:match match}))))
 
 (defn compile
   "Turns a routes map into a Router for routing and reverse routing
